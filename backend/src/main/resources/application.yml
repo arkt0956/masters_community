@@ -1,0 +1,54 @@
+spring:
+  application:
+    name: csp-was
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/csp}
+    username: ${DB_USER:csp}
+    password: ${DB_PASSWORD:csp}
+  jpa:
+    open-in-view: false
+    hibernate:
+      # DR-D01 — validate에서 바꾸지 않는다.
+      # update로 두면 기동 중에 스키마가 조용히 바뀌고 리뷰도 기록도 남지 않는다.
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: Asia/Seoul
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+server:
+  port: ${SERVER_PORT:8080}
+  # DR-S01 — Nginx 뒤에 있으므로 이 설정이 없으면 getRemoteAddr()가 항상 프록시 IP를 준다.
+  forward-headers-strategy: native
+  tomcat:
+    remoteip:
+      # 신뢰 프록시를 비워 두거나 전체 허용하면 외부에서 X-Forwarded-For를 위조해
+      # IP 일일 제한(R-46)을 우회할 수 있다.
+      internal-proxies: ${TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1}
+  servlet:
+    session:
+      # R-55 — 관리자 세션. 단일 WAS 전제이므로 세션 저장소를 두지 않는다.
+      timeout: 30m
+      cookie:
+        http-only: true
+        same-site: lax
+
+csp:
+  # 도면 원본 저장 경로. 파일명은 file_uuid다 (DR-F02, R-53).
+  drawing-dir: ${DRAWING_DIR:./data/drawings}
+  limit:
+    # R-46 — IP 기준 일일 제한. 신고와 추가풀이를 각각 카운트한다.
+    report-per-day: 10
+    extra-solution-per-day: 5
+    # R-48 — 현황 조회 무차별 대입 방지
+    lookup-fail-per-day: 20
+
+logging:
+  level:
+    kr.co.csp: INFO

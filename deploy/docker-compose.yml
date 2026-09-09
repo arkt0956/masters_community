@@ -1,0 +1,20 @@
+# 로컬 개발용 PostgreSQL. 운영 배포용이 아니다.
+#
+# 스키마는 Flyway가 만든다. 여기서 init 스크립트를 두지 않는 이유는
+# 스키마 변경 경로를 하나로 유지하기 위해서다 (DR-D01).
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: csp-db
+    environment:
+      POSTGRES_DB: csp
+      POSTGRES_USER: csp
+      POSTGRES_PASSWORD: csp
+      TZ: Asia/Seoul
+    ports:
+      - "5432:5432"
+    volumes:
+      - csp-pgdata:/var/lib/postgresql/data
+
+volumes:
+  csp-pgdata:

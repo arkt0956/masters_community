@@ -1,0 +1,61 @@
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+.kotlin
+
+### IntelliJ IDEA ###
+# 프로젝트 개인 설정 — 사람마다 다르고 공유 가치가 없다
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### Eclipse ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
+### 프로젝트 ###
+# 프론트엔드
+node_modules/
+frontend/dist/
+
+# 도면 원본 저장 경로 (csp.drawing-dir)
+backend/data/
+
+# 웹폰트 — 저작권 파일. public/fonts/README.md 참고
+frontend/public/fonts/*.woff2
+
+# 설계 문서 — 저장소로 공유하지 않는다
+docs/
+
+### 에이전트 로컬 설정 ###
+# 권한 허용 목록 등 개인 환경 값
+.claude/settings.local.json
+
+# IntelliJ MCP 서버 주소 — 포트가 IDE 실행마다 달라져 공유 불가
+.mcp.json
