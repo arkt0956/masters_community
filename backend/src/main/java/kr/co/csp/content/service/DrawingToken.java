@@ -71,4 +71,29 @@ public final class DrawingToken {
         // 토큰이 한 줄을 통째로 차지하는 경우 빈 줄이 남지 않도록 줄바꿈까지 함께 지운다.
         return contents.replaceAll("\\[\\[drawing:" + drawingNo + "]]\\R?", "");
     }
+
+    /**
+     * 본문의 모든 토큰을 지운다 (DR-F03).
+     *
+     * 추가풀이 등록에 쓴다. 사용자가 본문에 토큰을 직접 타이핑할 수 있는데, 그 번호가
+     * 실제 도면과 맞을 수 없다. 그대로 두면 고아 토큰이 되거나 서버가 붙인 토큰과
+     * 중복된다. 화면에 입력란이 없어도 본문에 칠 수 있으므로 서버에서 막는다 (DR-P04).
+     */
+    public static String removeAllTokens(String contents) {
+        return TOKEN.matcher(contents).replaceAll("").stripTrailing();
+    }
+
+    /**
+     * 도면 번호를 본문 끝에 토큰으로 이어 붙인다 (DR-F03).
+     *
+     * 추가풀이는 사용자가 본문 중간 위치를 지정할 수단이 없으므로 첨부 순서대로
+     * 뒤에 나열한다. 순서는 인자로 받은 목록의 순서다.
+     */
+    public static String appendTokens(String contents, List<Integer> drawingNos) {
+        StringBuilder sb = new StringBuilder(contents);
+        for (int no : drawingNos) {
+            sb.append("\n\n[[drawing:").append(no).append("]]");
+        }
+        return sb.toString();
+    }
 }

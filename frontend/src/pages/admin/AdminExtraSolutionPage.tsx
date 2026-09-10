@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ApiError, api } from '../../api/client';
+import { ApiError, api, drawingUrl } from '../../api/client';
 import type { AdminExtraSolutionItem, Code } from '../../api/types';
 import StatusBadge from '../../components/StatusBadge';
 
@@ -81,6 +81,24 @@ export default function AdminExtraSolutionPage() {
                   {item.sourceLabel} · {new Date(item.createdAt).toLocaleString('ko-KR')}
                 </div>
                 <div className="rbody">{item.contents}</div>
+                {/* 사용자가 첨부한 이미지 (DR-F03). 게시 전에 내용을 확인해야 한다.
+                    본문의 [[drawing:n]] 토큰이 이 번호를 가리킨다. */}
+                {item.drawings.length > 0 && (
+                  <div className="rdwgs">
+                    {item.drawings.map((drawing) => (
+                      <a
+                        key={drawing.drawingId}
+                        href={drawingUrl(drawing)}
+                        target="_blank"
+                        rel="noreferrer"
+                        title={`${drawing.fileName} — 새 창에서 원본 보기`}
+                      >
+                        <img src={drawingUrl(drawing)} alt={drawing.fileName} />
+                        <span>[[drawing:{drawing.drawingNo}]]</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
                 {item.rejectReason && <div className="rs">반려 사유: {item.rejectReason}</div>}
 
                 {!closed && (

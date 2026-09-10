@@ -86,7 +86,10 @@ public class AdminViewAssembler {
                         codeRegistry.getName(Grp.ES_STATUS, e.getStatusCode()),
                         e.getRejectReason(),
                         e.getCreatedAt(),
-                        e.getProcessedAt()))
+                        e.getProcessedAt(),
+                        contentAdminService
+                                .findDrawings(DrawingOwner.extraSolution(e.getExtraSolutionId()))
+                                .stream().map(DrawingResponse::from).toList()))
                 .toList();
     }
 

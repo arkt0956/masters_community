@@ -19,6 +19,8 @@ import kr.co.csp.content.entity.Exam;
 import kr.co.csp.content.entity.Question;
 import kr.co.csp.content.repository.ExamRepository;
 import kr.co.csp.content.repository.QuestionRepository;
+import kr.co.csp.content.service.DrawingService;
+import kr.co.csp.content.service.DrawingToken;
 import kr.co.csp.content.service.QuestionQueryService;
 import kr.co.csp.participation.dto.ExtraSolutionCreateRequest;
 import kr.co.csp.participation.dto.ExtraSolutionResponse;
@@ -30,6 +32,7 @@ import kr.co.csp.participation.repository.LookupAttemptLogRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /** 추가풀이 (SCR-006 · SCR-007 · REQ-U05 · REQ-U06). */
 @Service
@@ -40,6 +43,7 @@ public class ExtraSolutionService {
     private final QuestionRepository questionRepository;
     private final ExamRepository examRepository;
     private final QuestionQueryService questionQueryService;
+    private final DrawingService drawingService;
     private final CodeRegistry codeRegistry;
     private final PasswordEncoder passwordEncoder;
     private final CspProperties properties;
@@ -49,6 +53,7 @@ public class ExtraSolutionService {
                                 QuestionRepository questionRepository,
                                 ExamRepository examRepository,
                                 QuestionQueryService questionQueryService,
+                                DrawingService drawingService,
                                 CodeRegistry codeRegistry,
                                 PasswordEncoder passwordEncoder,
                                 CspProperties properties) {
@@ -57,6 +62,7 @@ public class ExtraSolutionService {
         this.questionRepository = questionRepository;
         this.examRepository = examRepository;
         this.questionQueryService = questionQueryService;
+        this.drawingService = drawingService;
         this.codeRegistry = codeRegistry;
         this.passwordEncoder = passwordEncoder;
         this.properties = properties;
@@ -67,20 +73,50 @@ public class ExtraSolutionService {
      *
      * 등록 즉시 공개되지 않는다. 검토대기(EXS001)로 저장하고 관리자 검토를 거친다.
      * 비밀번호는 bcrypt 해시로만 저장한다. 평문도 양방향 암호화도 쓰지 않는다 (R-47 · DR-S02).
+     *
+     * 이미지는 본문과 같은 요청으로 받아 한 트랜잭션에서 저장한다 (DR-F03). 2단계로 나누면
+     * 그 사이에 남의 추가풀이에 파일을 붙이는 요청을 막을 수 없다 — 로그인이 없어 소유자를
+     * 확인할 방법이 없기 때문이다. 파일 저장이 실패하면 추가풀이도 함께 롤백된다 (DR-P03).
      */
     @Transactional
-    public ExtraSolution create(ExtraSolutionCreateRequest request, InetAddress clientIp) {
+    public ExtraSolution create(ExtraSolutionCreateRequest request, List<MultipartFile> files,
+                                InetAddress clientIp) {
         questionRepository.findByQuestionIdAndStatusCode(request.questionId(), QStatus.PUBLISHED)
                 .orElseThrow(() -> new NotFoundException("문항을 찾을 수 없습니다."));
 
         assertWithinDailyLimit(clientIp);
 
-        return extraSolutionRepository.save(ExtraSolution.create(
+        List<MultipartFile> attachments = files == null ? List.of()
+                : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
+        assertWithinFileLimit(attachments);
+
+        // 사용자가 친 토큰은 실제 도면과 맞을 수 없다. 서버가 지운다 (DR-F03 · DR-P04).
+        ExtraSolution extra = extraSolutionRepository.save(ExtraSolution.create(
                 request.questionId(),
                 request.userName(),
                 passwordEncoder.encode(request.password()),
-                request.contents(),
+                DrawingToken.removeAllTokens(request.contents()),
                 clientIp));
+
+        if (attachments.isEmpty()) {
+            return extra;
+        }
+
+        // 도면 번호는 저장 후에야 정해진다. 받은 번호로 토큰을 만들어 본문 끝에 붙인다.
+        DrawingOwner owner = DrawingOwner.extraSolution(extra.getExtraSolutionId());
+        List<Integer> nos = attachments.stream()
+                .map(file -> drawingService.addDrawing(owner, file).getDrawingNo())
+                .toList();
+        extra.attachDrawingTokens(DrawingToken.appendTokens(extra.getContents(), nos));
+        return extra;
+    }
+
+    /** DR-F03 — 1건당 첨부 수. 건수 제한(R-46)과 곱한 값이 IP당 하루 상한이 된다. */
+    private void assertWithinFileLimit(List<MultipartFile> files) {
+        int max = properties.limit().extraSolutionFiles();
+        if (files.size() > max) {
+            throw new DomainException("이미지는 최대 %d장까지 첨부할 수 있습니다.".formatted(max));
+        }
     }
 
     /** R-46 — 추가풀이 5회/일. 신고와 별개로 카운트한다 (안건 3 확정). */

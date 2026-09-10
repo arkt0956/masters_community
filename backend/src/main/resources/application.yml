@@ -48,6 +48,8 @@ csp:
     extra-solution-per-day: 5
     # R-48 — 현황 조회 무차별 대입 방지
     lookup-fail-per-day: 20
+    # DR-F03 — 추가풀이 1건당 첨부 이미지 수. 건수 제한과 곱한 값이 IP당 하루 상한이다.
+    extra-solution-files: 5
 
 logging:
   level:

@@ -99,12 +99,23 @@ export const api = {
   createReport: (body: { questionId: number; typeCode: string; contents: string }) =>
     request<void>('/api/reports', json('POST', body)),
 
-  createExtraSolution: (body: {
-    questionId: number;
-    userName: string;
-    password: string;
-    contents: string;
-  }) => request<void>('/api/extra-solutions', json('POST', body)),
+  /**
+   * 추가풀이 등록 (SCR-006 ④).
+   *
+   * 본문과 이미지를 멀티파트 한 요청으로 보낸다 (DR-F03). data 파트는 JSON이라
+   * Blob에 타입을 명시해야 서버의 @RequestPart가 역직렬화한다.
+   *
+   * Content-Type을 직접 지정하지 않는다. 브라우저가 boundary를 붙여야 한다.
+   */
+  createExtraSolution: (
+    body: { questionId: number; userName: string; password: string; contents: string },
+    files: File[] = [],
+  ) => {
+    const form = new FormData();
+    form.append('data', new Blob([JSON.stringify(body)], { type: 'application/json' }));
+    files.forEach((file) => form.append('files', file));
+    return request<void>('/api/extra-solutions', { method: 'POST', body: form });
+  },
 
   /** POST인 이유는 ID/비밀번호를 URL 쿼리에 노출하지 않기 위해서다 (SCR-007 비고). */
   extraSolutionStatus: (body: { userName: string; password: string }) =>

@@ -119,6 +119,8 @@ export interface AdminExtraSolutionItem {
   rejectReason: string | null;
   createdAt: string;
   processedAt: string | null;
+  /** 사용자가 첨부한 이미지 (DR-F03). 게시 전에 관리자가 내용을 확인해야 한다. */
+  drawings: Drawing[];
 }
 
 export interface AdminQuestionItem {

@@ -85,6 +85,21 @@ public class ExtraSolution {
         return extra;
     }
 
+    /**
+     * 등록 트랜잭션 안에서 본문에 도면 토큰을 붙인다 (DR-F03).
+     *
+     * 도면 번호는 저장 후에야 정해지므로 create 시점에는 토큰을 넣을 수 없다.
+     * 검토대기 상태에서만 허용해, 관리자 검토가 시작된 뒤의 본문 변경을 막는다.
+     * 추가풀이는 등록 후 수정할 수 없다는 원칙(SCR-006 ③)의 예외가 아니라,
+     * 등록이 아직 끝나지 않은 상태를 마무리하는 것이다.
+     */
+    public void attachDrawingTokens(String contentsWithTokens) {
+        if (!EsStatus.WAITING.equals(statusCode)) {
+            throw new DomainException("검토가 시작된 추가풀이의 본문은 바꿀 수 없습니다.");
+        }
+        this.contents = contentsWithTokens;
+    }
+
     /** 검토대기 → 검토중 (SCR-A03 이벤트 1). */
     public void startReview() {
         if (!EsStatus.WAITING.equals(statusCode)) {

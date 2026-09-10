@@ -3,6 +3,13 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ApiError, api } from '../api/client';
 
 /**
+ * 첨부 상한. 서버의 csp.limit.extra-solution-files와 같은 값을 쓴다 (DR-P07).
+ * 한 장당 용량은 spring.servlet.multipart.max-file-size와 맞춘다.
+ */
+const MAX_FILES = 5;
+const MAX_MB = 10;
+
+/**
  * 추가풀이 등록 (SCR-006).
  *
  * 등록 즉시 공개되지 않는다. 관리자 검토를 거친다.
@@ -16,9 +23,37 @@ export default function ExtraSolutionNewPage() {
   const [userName, setUserName] = useState('');
   const [password, setPassword] = useState('');
   const [contents, setContents] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
+
+  /**
+   * 파일을 목록에 더한다. 같은 input을 다시 열어도 앞서 고른 것이 유지되도록 누적한다.
+   * 브라우저 기본 동작은 마지막 선택으로 교체하는 것이라 여러 번 나눠 고를 수 없다.
+   */
+  function addFiles(event: React.ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (picked.length === 0) return;
+
+    // 화면 검증은 사용자 편의다. 같은 규칙을 서버가 다시 검증한다 (DR-P04).
+    const oversized = picked.find((file) => file.size > MAX_MB * 1024 * 1024);
+    if (oversized) {
+      setError(`${oversized.name} 은(는) ${MAX_MB}MB를 넘습니다.`);
+      return;
+    }
+    if (files.length + picked.length > MAX_FILES) {
+      setError(`이미지는 최대 ${MAX_FILES}장까지 첨부할 수 있습니다.`);
+      return;
+    }
+    setError('');
+    setFiles((prev) => [...prev, ...picked]);
+  }
+
+  function removeFile(index: number) {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function submit() {
     setError('');
@@ -37,7 +72,7 @@ export default function ExtraSolutionNewPage() {
     }
     setSending(true);
     try {
-      await api.createExtraSolution({ questionId, userName, password, contents });
+      await api.createExtraSolution({ questionId, userName, password, contents }, files);
       setDone(true);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '등록하지 못했습니다.');
@@ -131,6 +166,35 @@ export default function ExtraSolutionNewPage() {
           onChange={(e) => setContents(e.target.value)}
           placeholder="풀이 과정을 적어 주세요."
         />
+      </div>
+
+      <div className="field">
+        <label htmlFor="es-files">이미지 (선택)</label>
+        <input
+          id="es-files"
+          type="file"
+          multiple
+          accept="image/png,image/jpeg,image/webp"
+          onChange={addFiles}
+        />
+        <p className="hint">
+          손으로 푼 답안이나 도면을 사진으로 올릴 수 있습니다. 최대 {MAX_FILES}장, 한 장당{' '}
+          {MAX_MB}MB까지이며 <strong>본문 뒤에 첨부한 순서대로</strong> 표시됩니다.
+        </p>
+        {files.length > 0 && (
+          <ul className="filelist">
+            {files.map((file, index) => (
+              <li key={`${file.name}-${index}`}>
+                <span className="fl-no">{index + 1}</span>
+                <span className="fl-name">{file.name}</span>
+                <span className="fl-size">{(file.size / 1024 / 1024).toFixed(1)}MB</span>
+                <button type="button" className="fl-del" onClick={() => removeFile(index)}>
+                  빼기
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       {error && <p className="err">{error}</p>}

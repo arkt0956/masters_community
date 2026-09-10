@@ -350,6 +350,21 @@ main.wide { max-width: 860px; margin: 0 auto; padding: 12px 20px 96px; }
 .editor h2 { margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing: -0.03em; }
 .editor .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .editor .field select, .editor .field input, .editor .field textarea { background: var(--surface-2); }
+/* 추가풀이 첨부 목록 (DR-F03) — 번호가 본문 뒤 표시 순서다 */
+.filelist { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; }
+.filelist li { display: flex; align-items: center; gap: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 8px 12px; font-size: 0.86rem; }
+.fl-no { flex: 0 0 auto; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--blue-soft); color: var(--blue-text); font-size: 0.74rem; font-weight: 700; }
+.fl-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--t1); }
+.fl-size { flex: 0 0 auto; color: var(--t3); font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.fl-del { flex: 0 0 auto; border: none; background: none; color: var(--t3); font-size: 0.82rem; font-weight: 600; cursor: pointer; padding: 2px 4px; }
+.fl-del:hover { color: var(--danger); }
+
+/* 관리자 검토 화면의 첨부 이미지 (SCR-A03) */
+.rdwgs { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
+.rdwgs a { display: block; text-decoration: none; border: 1px solid var(--line); border-radius: var(--r-sm); overflow: hidden; background: var(--surface); }
+.rdwgs img { display: block; width: 132px; height: 96px; object-fit: contain; background: #fff; }
+.rdwgs span { display: block; padding: 5px 8px; font-size: 0.72rem; color: var(--t3); border-top: 1px solid var(--line); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
 .slotbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 /* slotbar 안의 label은 field label의 아래 여백을 쓰지 않는다. 버튼과 baseline이 어긋난다. */
 .slotbar label { margin: 0; }
