@@ -8,6 +8,10 @@ import type {
   Drawing,
 } from '../../api/types';
 import StatusBadge from '../../components/StatusBadge';
+import { renderMarkdown } from '../../components/markdown';
+
+/** 미리보기에서 걷어낼 도면 토큰. 편집 중에는 아직 그릴 도면이 없다. */
+const TOKEN_LINE = /\[\[drawing:\d+]]/g;
 
 /**
  * 문제·풀이 작성 / 게시 (SCR-A04 · R-13~R-17).
@@ -164,6 +168,9 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
   const [solutionContents, setSolutionContents] = useState(detail?.solution?.contents ?? '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const [preview, setPreview] = useState(false);
+  const [solPreview, setSolPreview] = useState(false);
 
   // 회차 등록 — 전용 화면이 없어 이 자리에서 만든다. 작성 흐름을 끊지 않기 위해서다.
   const [addingExam, setAddingExam] = useState(false);
@@ -409,16 +416,28 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
       </div>
 
       <div className="field">
-        <label htmlFor="q-body">문제 본문</label>
+        <div className="slotbar">
+          <label htmlFor="q-body">문제 본문</label>
+          <button
+            className="mini sec"
+            type="button"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => setPreview((v) => !v)}
+          >
+            {preview ? '미리보기 닫기' : '미리보기'}
+          </button>
+        </div>
         <textarea
           id="q-body"
           value={form.contents}
           onChange={(e) => setForm({ ...form, contents: e.target.value })}
         />
+        {preview && <MarkdownPreview source={form.contents} />}
         <p className="hint">
           이미지 위치는 [[drawing:n]] 토큰으로 표시됩니다. 아래에서 도면을 올리면 토큰이 자동으로
           붙습니다. 토큰 위치를 옮기면 표시 순서가 바뀝니다.
         </p>
+        <MarkdownHelp />
       </div>
 
       <DrawingSlots
@@ -432,12 +451,23 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
       />
 
       <div className="field">
-        <label htmlFor="q-sol">해설 (모범답안)</label>
+        <div className="slotbar">
+          <label htmlFor="q-sol">해설 (모범답안)</label>
+          <button
+            className="mini sec"
+            type="button"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => setSolPreview((v) => !v)}
+          >
+            {solPreview ? '미리보기 닫기' : '미리보기'}
+          </button>
+        </div>
         <textarea
           id="q-sol"
           value={solutionContents}
           onChange={(e) => setSolutionContents(e.target.value)}
         />
+        {solPreview && <MarkdownPreview source={solutionContents} />}
       </div>
 
       <DrawingSlots
@@ -466,6 +496,56 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * 본문 미리보기.
+ *
+ * 사용자 화면과 같은 렌더러를 쓴다 (DR-F03). 관리자 화면이므로 손글씨체는 걸지 않는다
+ * (DR-P08). 도면은 아직 토큰만 있으므로 토큰 자리는 비워 두고, 서식만 확인하는 용도다.
+ */
+function MarkdownPreview({ source }: { source: string }) {
+  const html = useMemo(
+    () => renderMarkdown(source.replace(TOKEN_LINE, '')),
+    [source],
+  );
+  if (!source.trim()) {
+    return <div className="preview empty">미리볼 내용이 없습니다.</div>;
+  }
+  return (
+    <div className="preview">
+      <span className="preview-tag">미리보기 · 도면은 빠져 있습니다</span>
+      <div className="md" dangerouslySetInnerHTML={{ __html: html }} />
+    </div>
+  );
+}
+
+/** 표를 쓰려면 문법을 알아야 한다. 편집 화면에서 바로 볼 수 있게 접어 둔다. */
+function MarkdownHelp() {
+  return (
+    <details className="mdhelp">
+      <summary>서식 쓰는 법 (표 · 목록 · 강조)</summary>
+      <p>
+        문제 본문과 해설은 Markdown으로 해석됩니다. 그냥 글만 쓰면 지금까지와 똑같이 나옵니다.
+      </p>
+      <pre>{`| 조합 | 고정하중 | 활하중 |
+|---|---|---|
+| I | 1.25 | 1.75 |
+| II | 1.25 | 1.35 |
+
+- 목록은 하이픈으로
+1. 번호 목록은 숫자로
+
+**굵게** 는 별표 두 개`}</pre>
+      <p className="warn">
+        줄 앞에 공백 4칸을 넣으면 코드 블록으로 해석됩니다. 들여쓰기가 필요하면 3칸 이하로
+        쓰거나 미리보기로 확인해 주세요.
+      </p>
+      <p>
+        표에서 칸 병합은 안 됩니다. 복잡한 표는 도면 이미지로 올리는 편이 낫습니다.
+      </p>
+    </details>
   );
 }
 

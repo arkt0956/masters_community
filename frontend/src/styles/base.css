@@ -182,12 +182,46 @@ main.wide { max-width: 860px; margin: 0 auto; padding: 12px 20px 96px; }
 .tb-action { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 .pending { font-size: 0.8rem; font-weight: 600; color: var(--amber); background: var(--amber-bg); border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
 
+/* Markdown 본문 (DR-F03) — 관리자가 쓴 문제·해설에만 적용된다.
+ * 추가풀이는 평문 경로라 이 클래스가 붙지 않는다. */
+.md > *:first-child { margin-top: 0; }
+.md > *:last-child { margin-bottom: 0; }
+/* markdown-it이 breaks: true로 줄바꿈을 <br>로 만든다. pre-wrap을 그대로 두면
+ * 줄이 두 번 띄워진다. */
+.md p { margin: 0.6em 0; white-space: normal; }
+.md ul, .md ol { margin: 0.6em 0; padding-left: 1.5em; }
+.md li { margin: 0.2em 0; }
+.md li > p { margin: 0.2em 0; }
+.md h1, .md h2, .md h3, .md h4 { margin: 1.1em 0 0.4em; font-weight: 700; line-height: 1.45; }
+.md h1 { font-size: 1.16rem; }
+.md h2 { font-size: 1.08rem; }
+.md h3 { font-size: 1.01rem; }
+.md h4 { font-size: 0.96rem; }
+.md strong { font-weight: 700; }
+.md em { font-style: italic; }
+.md a { color: var(--blue-text); }
+.md hr { border: none; border-top: 1px solid var(--line); margin: 1.2em 0; }
+.md blockquote { margin: 0.7em 0; padding: 2px 0 2px 14px; border-left: 3px solid var(--line); color: var(--t2); }
+.md code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+.md pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px 14px; margin: 0.7em 0; overflow-x: auto; }
+.md pre code { background: none; border: none; padding: 0; }
+
+/* 표가 화면보다 넓으면 표 안에서만 스크롤한다. 본문은 좌우로 밀리지 않는다. */
+.md-table { overflow-x: auto; margin: 0.7em 0; }
+.md table { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+.md th, .md td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; }
+.md th { background: var(--surface-2); font-weight: 700; white-space: nowrap; }
+.md td { font-variant-numeric: tabular-nums; }
+
 /* 해설 영역 */
 .ans { padding: 0 26px 26px; }
 .ans-in { background: var(--bg); border-radius: var(--r-md); padding: 24px 22px; }
 .ans-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .eyebrow { font-size: 0.82rem; font-weight: 700; color: var(--blue-text); }
 .ans p { margin: 0.7em 0; color: var(--t1); white-space: pre-wrap; }
+/* 해설 영역 배경이 --bg라 --surface-2로는 표 머리가 구분되지 않는다 */
+.ans .md th { background: var(--surface); }
+.ans .md code, .ans .md pre { background: var(--surface); }
 .ans .dwgs { padding: 8px 0 0; }
 .ans .dwg { background: var(--surface); }
 .ans .zoom { background: var(--bg); box-shadow: none; }
@@ -317,6 +351,22 @@ main.wide { max-width: 860px; margin: 0 auto; padding: 12px 20px 96px; }
 .editor .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .editor .field select, .editor .field input, .editor .field textarea { background: var(--surface-2); }
 .slotbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* slotbar 안의 label은 field label의 아래 여백을 쓰지 않는다. 버튼과 baseline이 어긋난다. */
+.slotbar label { margin: 0; }
+
+/* 본문 미리보기 (DR-F03) */
+.preview { margin-top: 10px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 16px 18px; }
+.preview.empty { color: var(--t4); font-size: 0.88rem; }
+.preview-tag { display: block; font-size: 0.74rem; font-weight: 700; color: var(--t3); margin-bottom: 10px; }
+.preview .md { color: var(--t1); font-size: 0.95rem; line-height: 1.7; }
+.preview .md th { background: var(--surface); }
+
+/* 서식 안내 */
+.mdhelp { margin-top: 10px; font-size: 0.86rem; color: var(--t2); }
+.mdhelp summary { cursor: pointer; color: var(--blue-text); font-weight: 600; padding-left: 4px; }
+.mdhelp p { margin: 10px 0 0; padding-left: 4px; }
+.mdhelp p.warn { color: var(--amber); }
+.mdhelp pre { margin: 10px 0 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px 14px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; line-height: 1.6; color: var(--t1); }
 .slotbar .file { font-size: 0.86rem; color: var(--t3); }
 .dwg-admin { display: flex; gap: 10px; align-items: center; background: var(--surface-2); border-radius: var(--r-sm); padding: 10px 12px; }
 .dwg-admin img { width: 56px; height: 56px; object-fit: contain; background: #fff; border-radius: 8px; }

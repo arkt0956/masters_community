@@ -68,9 +68,15 @@ export default function QuestionCard({ question, onZoom, onReport }: Props) {
         <h2>{question.title}</h2>
       </div>
 
-      {/* 문제 본문은 기본 서체다. 원문 게재이므로 형태를 유지한다 (DR-P08) */}
+      {/* 문제 본문은 기본 서체다. 원문 게재이므로 형태를 유지한다 (DR-P08).
+          관리자가 쓴 본문이므로 Markdown으로 해석한다 (DR-F03) */}
       <div className="qbody">
-        <ContentsView contents={question.contents} drawings={question.drawings} onZoom={onZoom} />
+        <ContentsView
+          contents={question.contents}
+          drawings={question.drawings}
+          markdown
+          onZoom={onZoom}
+        />
       </div>
 
       <div className="titleblock">
@@ -121,11 +127,12 @@ export default function QuestionCard({ question, onZoom, onReport }: Props) {
             <div className="ans-head">
               <span className="eyebrow">모범답안</span>
             </div>
-            {/* 해설 본문에만 손글씨체 (DR-P08) */}
+            {/* 해설 본문에만 손글씨체 (DR-P08). 관리자가 쓴 본문이므로 Markdown (DR-F03) */}
             <ContentsView
               contents={solution.contents}
               drawings={solution.drawings}
               handwriting
+              markdown
               onZoom={onZoom}
             />
 
@@ -143,7 +150,9 @@ export default function QuestionCard({ question, onZoom, onReport }: Props) {
                       </span>
                     </div>
                     {/* 추가풀이도 답안이므로 손글씨체다. 사용자 입력이지만 React가
-                        텍스트를 이스케이프하므로 XSS는 발생하지 않는다 (DR-F03) */}
+                        텍스트를 이스케이프하므로 XSS는 발생하지 않는다 (DR-F03).
+                        markdown을 켜지 않는다 — 로그인 없는 사용자 입력이라 서식을 열지
+                        않기로 했다. 표가 필요하면 도면으로 올린다 */}
                     <ContentsView
                       contents={extra.contents}
                       drawings={extra.drawings}
