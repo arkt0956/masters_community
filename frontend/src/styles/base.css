@@ -366,6 +366,7 @@ main.wide { max-width: 860px; margin: 0 auto; padding: 12px 20px 96px; }
 .mdhelp summary { cursor: pointer; color: var(--blue-text); font-weight: 600; padding-left: 4px; }
 .mdhelp p { margin: 10px 0 0; padding-left: 4px; }
 .mdhelp p.warn { color: var(--amber); }
+.mdhelp code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.88em; background: var(--surface-2); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
 .mdhelp pre { margin: 10px 0 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-sm); padding: 12px 14px; overflow-x: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; line-height: 1.6; color: var(--t1); }
 .slotbar .file { font-size: 0.86rem; color: var(--t3); }
 .dwg-admin { display: flex; gap: 10px; align-items: center; background: var(--surface-2); border-radius: var(--r-sm); padding: 10px 12px; }
