@@ -86,6 +86,9 @@ export default function AdminQuestionPage() {
 
       {editing && (
         <QuestionEditor
+          // 편집 대상이 바뀌면 새로 마운트한다. form이 useState 초기값으로만 채워지므로
+          // key가 없으면 다른 문항을 열어도 이전 문항의 입력값이 남는다.
+          key={editing === 'new' ? 'new' : editing.questionId}
           detail={editing === 'new' ? null : editing}
           onClose={() => setEditing(null)}
           onSaved={async (saved) => {
@@ -162,6 +165,12 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // 회차 등록 — 전용 화면이 없어 이 자리에서 만든다. 작성 흐름을 끊지 않기 위해서다.
+  const [addingExam, setAddingExam] = useState(false);
+  const [newRound, setNewRound] = useState('');
+  const [newPublic, setNewPublic] = useState(false);
+  const [addingRound, setAddingRound] = useState(false);
+
   useEffect(() => {
     api.admin.exams().then(setExams).catch(() => undefined);
     // 과목은 관리자 경로로 받는다. 비활성 코드까지 보여야 기존 문항의 과목을 유지할 수 있다.
@@ -180,6 +189,30 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
     () => subjects.filter((s) => s.codeLevel === 2 && s.parentCode === major),
     [subjects, major],
   );
+
+  /** 회차를 만들고 곧바로 선택 상태로 둔다. 만들고 다시 고르게 하면 한 단계가 는다. */
+  async function addExam() {
+    const round = Number(newRound);
+    if (!Number.isInteger(round) || round < 1) {
+      setError('회차 번호는 1 이상의 정수여야 합니다.');
+      return;
+    }
+    setError('');
+    setAddingRound(true);
+    try {
+      const exam = await api.admin.createExam({ examRound: round, isPublic: newPublic });
+      setExams((prev) => [...prev, exam].sort((a, b) => b.examRound - a.examRound));
+      setForm((prev) => ({ ...prev, examId: String(exam.examId) }));
+      setAddingExam(false);
+      setNewRound('');
+      setNewPublic(false);
+    } catch (e) {
+      // 회차 번호는 UNIQUE라 중복이면 서버가 막는다 (uk_tb_csp_con01_round).
+      setError(e instanceof ApiError ? e.message : '회차를 등록하지 못했습니다.');
+    } finally {
+      setAddingRound(false);
+    }
+  }
 
   async function save() {
     setError('');
@@ -256,18 +289,54 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
       <div className="grid2">
         <div className="field">
           <label htmlFor="q-exam">회차</label>
-          <select
-            id="q-exam"
-            value={form.examId}
-            onChange={(e) => setForm({ ...form, examId: e.target.value })}
-          >
-            <option value="">회차 선택</option>
-            {exams.map((exam) => (
-              <option key={exam.examId} value={exam.examId}>
-                제{exam.examRound}회{exam.isPublic ? '' : ' (비공개)'}
-              </option>
-            ))}
-          </select>
+          <div className="slotbar">
+            <select
+              id="q-exam"
+              value={form.examId}
+              onChange={(e) => setForm({ ...form, examId: e.target.value })}
+            >
+              <option value="">회차 선택</option>
+              {exams.map((exam) => (
+                <option key={exam.examId} value={exam.examId}>
+                  제{exam.examRound}회{exam.isPublic ? '' : ' (비공개)'}
+                </option>
+              ))}
+            </select>
+            <button className="mini sec" type="button" onClick={() => setAddingExam((v) => !v)}>
+              {addingExam ? '취소' : '새 회차'}
+            </button>
+          </div>
+          {addingExam && (
+            <div className="slotbar" style={{ marginTop: 8 }}>
+              <input
+                type="number"
+                min={1}
+                placeholder="회차 번호"
+                value={newRound}
+                onChange={(e) => setNewRound(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void addExam();
+                  }
+                }}
+              />
+              <label className="file">
+                <input
+                  type="checkbox"
+                  checked={newPublic}
+                  onChange={(e) => setNewPublic(e.target.checked)}
+                />{' '}
+                바로 공개
+              </label>
+              <button className="mini" type="button" onClick={addExam} disabled={addingRound}>
+                {addingRound ? '등록 중…' : '등록'}
+              </button>
+              <span className="file">
+                공개하면 문항이 없어도 사용자 회차 목록에 나옵니다 (R-01).
+              </span>
+            </div>
+          )}
         </div>
         <div className="field">
           <label htmlFor="q-session">교시</label>
@@ -355,7 +424,9 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
       <DrawingSlots
         label="문제 도면"
         drawings={detail?.drawings ?? []}
+        // 도면은 question_id에 FK로 매달린다. 문항 행이 없으면 올릴 수 없다.
         disabled={!detail}
+        disabledHint="아래 저장 버튼을 누르면 올릴 수 있습니다."
         onUpload={(file) => upload('question', file)}
         onRemove={removeDrawing}
       />
@@ -372,7 +443,14 @@ function QuestionEditor({ detail, onClose, onSaved }: EditorProps) {
       <DrawingSlots
         label="답안 도면"
         drawings={detail?.solution?.drawings ?? []}
+        // solution_id에 매달리므로 해설 행이 먼저 있어야 한다. 해설이 비어 있으면
+        // save()가 해설을 저장하지 않으므로, 문항만 저장해서는 열리지 않는다.
         disabled={!detail?.solution}
+        disabledHint={
+          detail
+            ? '해설을 한 줄이라도 쓰고 저장하면 올릴 수 있습니다.'
+            : '해설을 쓰고 아래 저장 버튼을 누르면 올릴 수 있습니다.'
+        }
         onUpload={(file) => upload('solution', file)}
         onRemove={removeDrawing}
       />
@@ -395,11 +473,13 @@ interface SlotProps {
   label: string;
   drawings: Drawing[];
   disabled: boolean;
+  /** 비활성 이유. 슬롯마다 조건이 달라 문구를 공유하면 안내가 틀린다. */
+  disabledHint: string;
   onUpload: (file: File) => void;
   onRemove: (drawing: Drawing) => void;
 }
 
-function DrawingSlots({ label, drawings, disabled, onUpload, onRemove }: SlotProps) {
+function DrawingSlots({ label, drawings, disabled, disabledHint, onUpload, onRemove }: SlotProps) {
   return (
     <div className="field">
       <label>{label}</label>
@@ -414,7 +494,7 @@ function DrawingSlots({ label, drawings, disabled, onUpload, onRemove }: SlotPro
             e.target.value = '';
           }}
         />
-        {disabled && <span className="file">본문을 먼저 저장해야 올릴 수 있습니다.</span>}
+        {disabled && <span className="file">{disabledHint}</span>}
       </div>
       <div className="rows" style={{ marginTop: 8 }}>
         {drawings.map((drawing) => (
