@@ -7,11 +7,17 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
 import kr.co.csp.common.config.CspProperties;
 import kr.co.csp.common.exception.DomainException;
 import kr.co.csp.common.exception.NotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
@@ -25,6 +31,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class DrawingStorage {
+
+    private static final Logger log = LoggerFactory.getLogger(DrawingStorage.class);
 
     private final Path root;
 
@@ -83,13 +91,60 @@ public class DrawingStorage {
      *
      * 순서는 "파일 저장 → DB 커밋 → 실패 시 파일 삭제"다 (DR-P03).
      * DB보다 파일을 먼저 지우면 롤백됐을 때 DB에는 있는데 파일이 없는 행이 남는다.
+     *
+     * 실패해도 예외를 던지지 않는다. 두 가지 이유다:
+     *   · 트랜잭션 안에서 호출되면 예외가 DB 삭제까지 되돌린다. 파일 하나 못 지운 것 때문에
+     *     되돌리면 남는 것은 "지워야 할 행 + 지워야 할 파일"이라 더 나쁘다.
+     *   · addDrawing의 보상 경로에서 호출되는데, 여기서 던지면 원래 예외가 가려진다.
+     * 남은 파일은 고아 파일 청소가 회수한다 (DR-F02).
      */
     public void delete(UUID fileUuid) {
         try {
             Files.deleteIfExists(resolve(fileUuid));
+        } catch (IOException | DomainException e) {
+            log.warn("도면 파일을 삭제하지 못했습니다. 고아 파일 청소 대상으로 남습니다: {}", fileUuid, e);
+        }
+    }
+
+    /**
+     * 저장 디렉터리의 파일 목록 (DR-F02 고아 파일 청소).
+     *
+     * 업로드 중 임시 파일(upload-*.part)과 이름이 UUID가 아닌 파일은 빼고 돌려준다.
+     * 임시 파일까지 넘기면 업로드가 진행 중인 파일을 지울 수 있다.
+     *
+     * modifiedBefore보다 나중에 수정된 파일도 뺀다. 방금 올라와 아직 커밋되지 않은
+     * 파일은 DB에서 찾을 수 없어 고아로 보이기 때문이다.
+     */
+    public List<UUID> listFileUuids(Instant modifiedBefore) {
+        if (!Files.isDirectory(root)) {
+            return List.of();
+        }
+        try (Stream<Path> files = Files.list(root)) {
+            return files.filter(Files::isRegularFile)
+                    .filter(path -> isOlderThan(path, modifiedBefore))
+                    .map(path -> parseUuid(path.getFileName().toString()))
+                    .filter(Objects::nonNull)
+                    .toList();
         } catch (IOException e) {
-            // 파일이 남아도 서비스는 동작한다. 실패로 트랜잭션을 되돌리지 않는다.
-            throw new DomainException("도면 파일을 삭제하지 못했습니다.");
+            log.warn("도면 저장 디렉터리를 읽지 못했습니다: {}", root, e);
+            return List.of();
+        }
+    }
+
+    private boolean isOlderThan(Path path, Instant threshold) {
+        try {
+            return Files.getLastModifiedTime(path).toInstant().isBefore(threshold);
+        } catch (IOException e) {
+            // 시각을 못 읽으면 지우지 않는다. 판단이 서지 않을 때는 남기는 쪽이 안전하다.
+            return false;
+        }
+    }
+
+    private static UUID parseUuid(String fileName) {
+        try {
+            return UUID.fromString(fileName);
+        } catch (IllegalArgumentException e) {
+            return null;   // upload-*.part 등 우리가 만든 이름이 아닌 파일
         }
     }
 

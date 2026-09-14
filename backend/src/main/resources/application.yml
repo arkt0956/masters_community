@@ -50,6 +50,12 @@ csp:
     lookup-fail-per-day: 20
     # DR-F03 — 추가풀이 1건당 첨부 이미지 수. 건수 제한과 곱한 값이 IP당 하루 상한이다.
     extra-solution-files: 5
+  # DR-F02 — 보관 기간
+  retention:
+    # 반려된 추가풀이를 지우기까지의 일수. 도면 파일·도면 행·추가풀이 행을 함께 지운다.
+    rejected-days: 15
+    # 고아 파일 판정 임계. 커밋 전 업로드 파일을 지우지 않도록 여유를 둔다.
+    orphan-file-hours: 24
 
 logging:
   level:

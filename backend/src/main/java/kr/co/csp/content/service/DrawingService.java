@@ -3,8 +3,10 @@ package kr.co.csp.content.service;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import kr.co.csp.common.exception.DomainException;
 import kr.co.csp.common.exception.NotFoundException;
@@ -105,6 +107,46 @@ public class DrawingService {
 
         drawingRepository.delete(target);
         storage.delete(target.getFileUuid());
+    }
+
+    /**
+     * 추가풀이의 도면을 통째로 지운다 (DR-F02 보관 기간).
+     *
+     * deleteDrawing이 추가풀이 도면 삭제를 막는 이유는 "등록 후 수정할 수 없다"는 원칙
+     * 때문이다(SCR-006 ③). 여기는 추가풀이 자체가 사라지는 경로라 그 원칙과 충돌하지
+     * 않는다. 가드를 푸는 대신 별도 메서드를 둔 것은, 일반 삭제 경로가 실수로 열리는
+     * 것을 막기 위해서다.
+     *
+     * 본문 토큰은 건드리지 않는다. 추가풀이 행도 함께 사라지므로 고칠 대상이 없다.
+     *
+     * 파일은 지우지 않고 file_uuid만 돌려준다. 호출부가 커밋 뒤에 지운다.
+     */
+    @Transactional
+    public List<UUID> deleteAllByExtraSolution(Long extraSolutionId) {
+        List<Drawing> drawings = drawingRepository.findByExtraSolutionIdOrderByDrawingNoAsc(extraSolutionId);
+        List<UUID> fileUuids = drawings.stream().map(Drawing::getFileUuid).toList();
+        drawingRepository.deleteAll(drawings);
+        return fileUuids;
+    }
+
+    /**
+     * 참조되지 않는 파일을 지운다 (DR-F02 고아 파일 청소).
+     *
+     * 반려 건 정리에서 파일 삭제가 실패했거나, 트랜잭션이 롤백되어 DB 행 없이 파일만 남은
+     * 경우를 회수한다. 어떤 경로로 생겼든 tb_csp_con04가 참조하지 않는 파일은 쓸모가 없다.
+     *
+     * modifiedBefore가 필수인 이유: 방금 업로드되어 아직 커밋되지 않은 파일은 DB에서
+     * 찾을 수 없어 고아로 보인다. 이 임계값이 없으면 살아있는 파일을 지운다.
+     *
+     * @return 지운 파일 수
+     */
+    public int purgeOrphanFiles(Instant modifiedBefore) {
+        Set<UUID> referenced = Set.copyOf(drawingRepository.findAllFileUuids());
+        List<UUID> orphans = storage.listFileUuids(modifiedBefore).stream()
+                .filter(uuid -> !referenced.contains(uuid))
+                .toList();
+        orphans.forEach(storage::delete);
+        return orphans.size();
     }
 
     @Transactional(readOnly = true)

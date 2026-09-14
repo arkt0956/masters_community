@@ -1,9 +1,12 @@
 package kr.co.csp.participation.service;
 
 import java.net.InetAddress;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import kr.co.csp.common.code.CodeRegistry;
 import kr.co.csp.common.code.SystemCode.EsStatus;
@@ -29,6 +32,8 @@ import kr.co.csp.participation.entity.ExtraSolution;
 import kr.co.csp.participation.entity.LookupAttemptLog;
 import kr.co.csp.participation.repository.ExtraSolutionRepository;
 import kr.co.csp.participation.repository.LookupAttemptLogRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +42,8 @@ import org.springframework.web.multipart.MultipartFile;
 /** 추가풀이 (SCR-006 · SCR-007 · REQ-U05 · REQ-U06). */
 @Service
 public class ExtraSolutionService {
+
+    private static final Logger log = LoggerFactory.getLogger(ExtraSolutionService.class);
 
     private final ExtraSolutionRepository extraSolutionRepository;
     private final LookupAttemptLogRepository lookupAttemptLogRepository;
@@ -227,6 +234,40 @@ public class ExtraSolutionService {
             default -> throw new DomainException("추가풀이 상태로 바꿀 수 없는 값입니다.");
         }
         return extra;
+    }
+
+    /**
+     * 보관 기간이 지난 반려 건을 지운다 (DR-F02).
+     *
+     * 반려는 종료 상태라(assertOpen) 되돌릴 수 없다. 영구 보관할 이유가 없고, 그대로 두면
+     * 디스크와 user_name·password_hash·created_ip가 무한정 쌓인다.
+     *
+     * 문항 물리 삭제 금지(DR-L01)의 예외가 아니다. 그 규칙은 tb_csp_con02가 대상이며
+     * 사용자가 등록한 데이터가 함께 사라지는 것을 막으려는 것이다. 반려된 추가풀이는
+     * 그 "사용자가 등록한 데이터" 자체이고 공개된 적이 없다.
+     *
+     * tb_csp_usr02를 참조하는 FK는 tb_csp_con04.extra_solution_id 하나다. 도면 행을
+     * 먼저 지운다.
+     *
+     * 파일은 여기서 지우지 않고 file_uuid만 돌려준다. 호출부가 커밋 뒤에 지운다 —
+     * 파일을 먼저 지우면 롤백됐을 때 DB에는 행이 있는데 파일이 없는 상태가 남는다.
+     */
+    @Transactional
+    public List<UUID> purgeRejected(OffsetDateTime before) {
+        List<ExtraSolution> expired =
+                extraSolutionRepository.findByStatusCodeAndProcessedAtBefore(EsStatus.REJECTED, before);
+        if (expired.isEmpty()) {
+            return List.of();
+        }
+
+        List<UUID> fileUuids = new ArrayList<>();
+        for (ExtraSolution extra : expired) {
+            fileUuids.addAll(drawingService.deleteAllByExtraSolution(extra.getExtraSolutionId()));
+        }
+        extraSolutionRepository.deleteAll(expired);
+
+        log.info("보관 기간이 지난 반려 추가풀이를 지웠습니다: {}건, 도면 {}개", expired.size(), fileUuids.size());
+        return fileUuids;
     }
 
     /** SCR-A01 ② — 검토대기 + 검토중 합계. */

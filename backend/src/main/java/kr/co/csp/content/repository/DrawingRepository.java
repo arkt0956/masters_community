@@ -19,6 +19,10 @@ public interface DrawingRepository extends JpaRepository<Drawing, Long> {
 
     Optional<Drawing> findByFileUuid(UUID fileUuid);
 
+    /** 고아 파일 청소의 기준 집합 (DR-F02). 여기 없는 파일은 참조되지 않는 파일이다. */
+    @Query("select d.fileUuid from Drawing d")
+    List<UUID> findAllFileUuids();
+
     /**
      * 소유자별 최대 도면 번호 (DR-F01).
      *

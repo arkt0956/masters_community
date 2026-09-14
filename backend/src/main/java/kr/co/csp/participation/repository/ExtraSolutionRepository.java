@@ -26,6 +26,9 @@ public interface ExtraSolutionRepository extends JpaRepository<ExtraSolution, Lo
 
     List<ExtraSolution> findAllByOrderByCreatedAtDesc();
 
+    /** 보관 기간이 지난 반려 건 (DR-F02). processed_at은 reject()가 채운다. */
+    List<ExtraSolution> findByStatusCodeAndProcessedAtBefore(String statusCode, OffsetDateTime before);
+
     /** 문항 상세에 붙여 보여줄 게시된 추가풀이 (R-37). */
     List<ExtraSolution> findByQuestionIdAndStatusCodeOrderByCreatedAtDesc(Long questionId, String statusCode);
 
